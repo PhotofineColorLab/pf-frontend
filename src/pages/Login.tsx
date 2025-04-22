@@ -17,3 +17,37 @@ const Login = () => {
 };
 
 export default Login;
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!email || !password) {
+    toast({
+      title: "Error",
+      description: "Please enter both email and password",
+      variant: "destructive",
+    });
+    return;
+  }
+  
+  try {
+    setLoading(true);
+    const data = await login(email, password);
+    
+    // Toast is now handled in the login function
+    
+    // Redirect based on user role
+    if (data.user.role === "admin") {
+      navigate("/admin");
+    } else if (data.user.role === "photographer") {
+      navigate("/orders");
+    } else {
+      navigate("/");
+    }
+  } catch (error) {
+    // Toast is now handled in the login function
+    console.error("Login error:", error);
+  } finally {
+    setLoading(false);
+  }
+};

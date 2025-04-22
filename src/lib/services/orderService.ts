@@ -48,9 +48,15 @@ export const getAllOrders = async () => {
 };
 
 // Update order status (admin only)
-export const updateOrderStatus = async (id: string, status: Order['status']) => {
-  const response = await api.put(`/orders/${id}/status`, { status });
-  return response.data;
+export const updateOrderStatus = async (orderId: string, status: string) => {
+  try {
+    const response = await api.put(`/orders/${orderId}/status`, { status });
+    // Remove toast notification for status changes
+    return response.data;
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    throw error;
+  }
 };
 
 // Add notes to order (admin only)
@@ -76,4 +82,4 @@ export const deleteOrder = async (id: string) => {
 export const debugOrderFile = async (id: string) => {
   const response = await api.get(`/orders/${id}/debug`);
   return response.data;
-}; 
+};

@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Order } from "@/lib/types";
 import { StatusBadge } from "./StatusBadge";
-import { ChevronDown, ChevronUp, QrCode, Download, Bug, BookOpen } from "lucide-react";
+import { ChevronDown, ChevronUp, QrCode, Download, BookOpen } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import QRCode from "react-qr-code";
@@ -349,14 +349,6 @@ export const OrderCard = ({
                 disabled={loading}
               >
                 <Download className="h-4 w-4 mr-2" /> Download
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleDebug}
-                disabled={loading}
-              >
-                <Bug className="h-4 w-4" />
               </Button>
             </>
           )}

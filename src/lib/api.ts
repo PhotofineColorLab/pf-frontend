@@ -25,6 +25,16 @@ api.interceptors.request.use(
 );
 
 // Add response interceptor to handle errors
+// Add this function to handle authentication-related toasts
+export const showAuthToast = (message: string, isError: boolean = false) => {
+  toast({
+    title: isError ? "Authentication Error" : "Authentication",
+    description: message,
+    variant: isError ? "destructive" : "default",
+  });
+};
+
+// Modify the interceptor to use this function
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -35,6 +45,10 @@ api.interceptors.response.use(
       console.log('Authentication error. Redirecting to login...');
       localStorage.removeItem('photofine_token');
       localStorage.removeItem('photofine_current_user');
+      
+      // Show logout toast
+      showAuthToast("Your session has expired. Please log in again.");
+      
       // Use window.location.replace to avoid adding to history
       window.location.replace('/login');
     }
@@ -42,4 +56,10 @@ api.interceptors.response.use(
   }
 );
 
-export default api; 
+// Add this new function to delete a photographer
+export const deletePhotographer = async (id: string) => {
+  const response = await api.delete(`/users/${id}`);
+  return response.data;
+};
+
+export default api;

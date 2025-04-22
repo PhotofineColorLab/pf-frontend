@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -43,6 +43,8 @@ const AlbumViewer = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [animationDirection, setAnimationDirection] = useState<'next' | 'prev' | null>(null);
+  const albumContentRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     const loadAlbum = async () => {
@@ -113,13 +115,43 @@ const AlbumViewer = () => {
 
   const nextPage = () => {
     if (currentPage < totalPages - 1) {
-      setCurrentPage(prev => prev + 1);
+      // Apply animation
+      setAnimationDirection('next');
+      
+      // Reset album content position
+      if (albumContentRef.current) {
+        albumContentRef.current.style.animation = 'none';
+        // Force reflow
+        void albumContentRef.current.offsetWidth;
+        albumContentRef.current.style.animation = 'turnPageForward 0.5s ease-in-out';
+      }
+      
+      // Set current page after a slight delay
+      setTimeout(() => {
+        setCurrentPage(prev => prev + 1);
+        setAnimationDirection(null);
+      }, 250);
     }
   };
 
   const prevPage = () => {
     if (currentPage > 0) {
-      setCurrentPage(prev => prev - 1);
+      // Apply animation
+      setAnimationDirection('prev');
+      
+      // Reset album content position
+      if (albumContentRef.current) {
+        albumContentRef.current.style.animation = 'none';
+        // Force reflow
+        void albumContentRef.current.offsetWidth;
+        albumContentRef.current.style.animation = 'turnPageBackward 0.5s ease-in-out';
+      }
+      
+      // Set current page after a slight delay
+      setTimeout(() => {
+        setCurrentPage(prev => prev - 1);
+        setAnimationDirection(null);
+      }, 250);
     }
   };
 
@@ -236,9 +268,55 @@ const AlbumViewer = () => {
 
       {/* Album content */}
       <div className="h-full w-full flex flex-col items-center justify-center relative">
-        <div className="relative max-h-[80vh] max-w-[90vw] aspect-[4/3]">
+        <div 
+          ref={albumContentRef}
+          className="relative max-h-[80vh] max-w-[90vw] aspect-[4/3] perspective-1000"
+          style={{
+            perspective: "1000px"
+          }}
+        >
           {renderAlbumContent()}
         </div>
+
+        {/* Page turning animations CSS */}
+        <style>
+          {`
+            @keyframes turnPageForward {
+              0% {
+                transform: rotateY(0deg);
+                opacity: 1;
+              }
+              50% {
+                transform: rotateY(90deg);
+                opacity: 0.5;
+              }
+              100% {
+                transform: rotateY(0deg);
+                opacity: 1;
+              }
+            }
+            
+            @keyframes turnPageBackward {
+              0% {
+                transform: rotateY(0deg);
+                opacity: 1;
+              }
+              50% {
+                transform: rotateY(-90deg);
+                opacity: 0.5;
+              }
+              100% {
+                transform: rotateY(0deg);
+                opacity: 1;
+              }
+            }
+            
+            .perspective-1000 {
+              perspective: 1000px;
+              transform-style: preserve-3d;
+            }
+          `}
+        </style>
 
         {/* Navigation controls */}
         <div className="absolute inset-x-0 bottom-0 p-4 flex items-center justify-between bg-gradient-to-t from-black/80 to-transparent">

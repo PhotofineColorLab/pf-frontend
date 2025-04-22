@@ -170,13 +170,10 @@ const AlbumGenerator = () => {
       // Store album data in localStorage
       localStorage.setItem(`album_${id}`, JSON.stringify(albumData));
       
-      // Update order status
+      // Update order status without showing a toast
       if (id) {
         await updateOrderStatus(id, "Completed");
-        toast({
-          title: "Album Created",
-          description: "Digital album has been created successfully",
-        });
+        // Remove the toast notification for status change
         
         // Redirect based on user role
         if (isAdmin) {
@@ -412,4 +409,4 @@ const AlbumGenerator = () => {
   );
 };
 
-export default AlbumGenerator; 
+export default AlbumGenerator;
