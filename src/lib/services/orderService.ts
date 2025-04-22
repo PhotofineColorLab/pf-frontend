@@ -1,4 +1,4 @@
-import api from '../api';
+import api, { publicApi } from '../api';
 import { Order } from '../types';
 import axios from 'axios';
 
@@ -44,7 +44,7 @@ export const getOrderById = async (id: string) => {
 // Get album data by ID (public, no authentication required)
 export const getPublicAlbumById = async (id: string) => {
   try {
-    const response = await api.get(`/orders/album/${id}`);
+    const response = await publicApi.get(`/orders/album/${id}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching public album data:", error);

@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getOrderById, getPublicAlbumById } from "@/lib/services/orderService";
-import { ArrowLeft, ArrowRight, Download, Share2 } from "lucide-react";
+import { getPublicAlbumById } from "@/lib/services/orderService";
+import { ArrowLeft, ArrowRight, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // Fallback colors in case no images are available
@@ -61,54 +61,54 @@ const AlbumViewer = () => {
           return;
         }
         
-        // Check if we have album data in localStorage
+        // Step 1: Try to load album data from localStorage first (this has the full album data)
         const storedAlbumData = localStorage.getItem(`album_${id}`);
         
         if (storedAlbumData) {
+          console.log("Loading album from localStorage");
           // Parse stored album data
-          const albumData = JSON.parse(storedAlbumData) as Album;
-          setAlbumName(albumData.name);
-          
-          if (albumData.pages && albumData.pages.length > 0) {
-            // Sort pages by position to ensure correct order
-            const sortedPages = [...albumData.pages].sort((a, b) => a.position - b.position);
-            setAlbumPages(sortedPages);
-            setTotalPages(sortedPages.length);
-            setUsingFallback(false);
-          } else {
-            // Fallback to sample colors if no pages
-            setTotalPages(FALLBACK_COLORS.length);
-            setUsingFallback(true);
+          try {
+            const albumData = JSON.parse(storedAlbumData) as Album;
+            setAlbumName(albumData.name);
+            
+            if (albumData.pages && albumData.pages.length > 0) {
+              // Sort pages by position to ensure correct order
+              const sortedPages = [...albumData.pages].sort((a, b) => a.position - b.position);
+              setAlbumPages(sortedPages);
+              setTotalPages(sortedPages.length);
+              setUsingFallback(false);
+            } else {
+              // Fallback if album has no pages
+              console.log("Album has no pages, using fallback");
+              setTotalPages(FALLBACK_COLORS.length);
+              setUsingFallback(true);
+            }
+          } catch (parseError) {
+            console.error("Error parsing stored album data:", parseError);
+            // Continue to public API if localStorage data is corrupted
           }
         } else {
-          // Try to get public album data
+          // Step 2: If not in localStorage, try to get public album data
+          console.log("Album not found in localStorage, trying public API");
           try {
-            // First try public endpoint (no auth required)
             const publicAlbumData = await getPublicAlbumById(id);
             
             if (publicAlbumData) {
+              console.log("Got public album data:", publicAlbumData);
               setAlbumName(publicAlbumData.albumName || "Digital Album");
               setTotalPages(FALLBACK_COLORS.length);
               setUsingFallback(true);
             } else {
-              // Fallback to getting order info (requires auth)
-              try {
-                const orderData = await getOrderById(id);
-                setAlbumName(orderData.albumName || "Digital Album");
-                setTotalPages(FALLBACK_COLORS.length);
-                setUsingFallback(true);
-              } catch (error) {
-                console.error("Error fetching order data:", error);
-                // If we can't get order data, use sample album
-                setAlbumName("Sample Album");
-                setTotalPages(FALLBACK_COLORS.length);
-                setUsingFallback(true);
-              }
+              // If we can't get album data, use a generic fallback
+              console.log("No public album data, using generic fallback");
+              setAlbumName("Photo Album");
+              setTotalPages(FALLBACK_COLORS.length);
+              setUsingFallback(true);
             }
-          } catch (error) {
-            console.error("Error fetching album data:", error);
-            // If we can't get any data, use sample album
-            setAlbumName("Sample Album");
+          } catch (apiError) {
+            console.error("Error fetching public album data:", apiError);
+            // Use generic fallback if API call fails
+            setAlbumName("Photo Album");
             setTotalPages(FALLBACK_COLORS.length);
             setUsingFallback(true);
           }
@@ -124,7 +124,12 @@ const AlbumViewer = () => {
           description: "Failed to load album data",
           variant: "destructive",
         });
-        navigate("/");
+        
+        // Use fallback album rather than redirecting
+        setAlbumName("Photo Album");
+        setTotalPages(FALLBACK_COLORS.length);
+        setUsingFallback(true);
+        setLoading(false);
       }
     };
     

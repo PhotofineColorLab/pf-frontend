@@ -10,7 +10,16 @@ const api = axios.create({
   },
 });
 
-// Add request interceptor to add auth token to requests
+// Create a public API instance that doesn't add auth tokens
+// This is used for endpoints that should be publicly accessible
+export const publicApi = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add request interceptor to add auth token to requests (only for the authenticated API)
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('photofine_token');
