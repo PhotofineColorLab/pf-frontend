@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getPublicAlbumById } from "@/lib/services/orderService";
+import { getPublicAlbumById, getAlbumPage } from "@/lib/services/orderService";
 import { ArrowLeft, ArrowRight, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,15 +41,18 @@ const AlbumViewer = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
-  const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
+  const [pageInfo, setPageInfo] = useState<{id: string, isSelected: boolean, position: number}[]>([]);
+  const [loadedPages, setLoadedPages] = useState<{[position: number]: string}>({});
+  const [currentPageLoading, setCurrentPageLoading] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
   const [animationDirection, setAnimationDirection] = useState<'next' | 'prev' | null>(null);
   const albumContentRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    const loadAlbum = async () => {
+    const loadAlbumInfo = async () => {
       try {
         setLoading(true);
+        console.log("AlbumViewer: Loading album", id);
         
         if (!id) {
           toast({
@@ -61,62 +64,82 @@ const AlbumViewer = () => {
           return;
         }
         
-        // Step 1: Try to load album data from localStorage first (this has the full album data)
+        // Step 1: Try to load album data from localStorage first
         const storedAlbumData = localStorage.getItem(`album_${id}`);
         
         if (storedAlbumData) {
-          console.log("Loading album from localStorage");
-          // Parse stored album data
+          console.log("AlbumViewer: Found album in localStorage");
           try {
             const albumData = JSON.parse(storedAlbumData) as Album;
             setAlbumName(albumData.name);
             
             if (albumData.pages && albumData.pages.length > 0) {
-              // Sort pages by position to ensure correct order
+              console.log("AlbumViewer: Using pages from localStorage");
               const sortedPages = [...albumData.pages].sort((a, b) => a.position - b.position);
-              setAlbumPages(sortedPages);
+              
+              // Instead of setting all pages at once, just store page info
+              const pagesInfo = sortedPages.map(page => ({
+                id: page.id,
+                isSelected: page.isSelected,
+                position: page.position
+              }));
+              setPageInfo(pagesInfo);
+              
+              // Load just the first page
+              setLoadedPages({
+                [sortedPages[0].position]: sortedPages[0].dataUrl
+              });
+              
               setTotalPages(sortedPages.length);
               setUsingFallback(false);
-            } else {
-              // Fallback if album has no pages
-              console.log("Album has no pages, using fallback");
-              setTotalPages(FALLBACK_COLORS.length);
-              setUsingFallback(true);
+              setLoading(false);
+              return; // Exit early since we found data in localStorage
             }
           } catch (parseError) {
             console.error("Error parsing stored album data:", parseError);
-            // Continue to public API if localStorage data is corrupted
-          }
-        } else {
-          // Step 2: If not in localStorage, try to get public album data
-          console.log("Album not found in localStorage, trying public API");
-          try {
-            const publicAlbumData = await getPublicAlbumById(id);
-            
-            if (publicAlbumData) {
-              console.log("Got public album data:", publicAlbumData);
-              setAlbumName(publicAlbumData.albumName || "Digital Album");
-              setTotalPages(FALLBACK_COLORS.length);
-              setUsingFallback(true);
-            } else {
-              // If we can't get album data, use a generic fallback
-              console.log("No public album data, using generic fallback");
-              setAlbumName("Photo Album");
-              setTotalPages(FALLBACK_COLORS.length);
-              setUsingFallback(true);
-            }
-          } catch (apiError) {
-            console.error("Error fetching public album data:", apiError);
-            // Use generic fallback if API call fails
-            setAlbumName("Photo Album");
-            setTotalPages(FALLBACK_COLORS.length);
-            setUsingFallback(true);
+            // Continue to public API
           }
         }
         
-        setTimeout(() => {
-          setLoading(false);
-        }, 500);
+        // Step 2: If localStorage failed, try to get album info from server
+        console.log("AlbumViewer: Fetching album from server");
+        const publicAlbumData = await getPublicAlbumById(id);
+        
+        if (publicAlbumData && publicAlbumData.pageInfo && publicAlbumData.pageInfo.length > 0) {
+          console.log("AlbumViewer: Using pages from server", publicAlbumData);
+          setAlbumName(publicAlbumData.albumName || "Digital Album");
+          
+          // Sort the album pages by position
+          const sortedPages = [...publicAlbumData.pageInfo].sort((a, b) => a.position - b.position);
+          
+          // Set page info for all pages 
+          const pagesInfo = sortedPages.map(page => ({
+            id: page.id,
+            isSelected: page.isSelected,
+            position: page.position
+          }));
+          setPageInfo(pagesInfo);
+          
+          // Load just the first page
+          if (sortedPages[0]?.dataUrl) {
+            setLoadedPages({
+              [sortedPages[0].position]: sortedPages[0].dataUrl
+            });
+          } else {
+            // Load the first page from the API if dataUrl is not provided
+            await loadPageData(publicAlbumData.albumId, sortedPages[0].id, sortedPages[0].position);
+          }
+          
+          setTotalPages(sortedPages.length);
+          setUsingFallback(false);
+        } else {
+          console.log("AlbumViewer: No album pages found, using fallback");
+          // If we still don't have data, use fallback
+          setAlbumName(publicAlbumData?.albumName || "Photo Album");
+          setTotalPages(FALLBACK_COLORS.length);
+          setUsingFallback(true);
+        }
+        
       } catch (error) {
         console.error("Failed to load album:", error);
         toast({
@@ -129,12 +152,59 @@ const AlbumViewer = () => {
         setAlbumName("Photo Album");
         setTotalPages(FALLBACK_COLORS.length);
         setUsingFallback(true);
+      } finally {
         setLoading(false);
       }
     };
     
-    loadAlbum();
+    loadAlbumInfo();
   }, [id, navigate, toast]);
+
+  // Function to load a specific page data
+  const loadPageData = async (albumId: string, pageId: string, position: number) => {
+    if (!albumId || !pageId) return;
+    
+    try {
+      setCurrentPageLoading(true);
+      const pageData = await getAlbumPage(albumId, pageId);
+      
+      if (pageData && pageData.dataUrl) {
+        setLoadedPages(prev => ({
+          ...prev,
+          [position]: pageData.dataUrl
+        }));
+      }
+    } catch (error) {
+      console.error(`Failed to load page ${pageId}:`, error);
+    } finally {
+      setCurrentPageLoading(false);
+    }
+  };
+
+  // Preload the next and previous pages
+  useEffect(() => {
+    if (usingFallback || !id || pageInfo.length === 0) return;
+    
+    const preloadAdjacentPages = async () => {
+      // Find next and previous page indices
+      const nextPageIndex = currentPage + 1;
+      const prevPageIndex = currentPage - 1;
+      
+      // Preload next page if it exists and isn't already loaded
+      if (nextPageIndex < totalPages && !loadedPages[pageInfo[nextPageIndex]?.position]) {
+        const nextPage = pageInfo[nextPageIndex];
+        loadPageData(id, nextPage.id, nextPage.position);
+      }
+      
+      // Preload previous page if it exists and isn't already loaded
+      if (prevPageIndex >= 0 && !loadedPages[pageInfo[prevPageIndex]?.position]) {
+        const prevPage = pageInfo[prevPageIndex];
+        loadPageData(id, prevPage.id, prevPage.position);
+      }
+    };
+    
+    preloadAdjacentPages();
+  }, [currentPage, id, pageInfo, totalPages, loadedPages, usingFallback]);
 
   const nextPage = () => {
     if (currentPage < totalPages - 1) {
@@ -254,17 +324,48 @@ const AlbumViewer = () => {
           {currentPage === 0 ? "ALBUM COVER" : `PAGE ${currentPage}`}
         </div>
       );
-    } else if (albumPages && albumPages.length > 0) {
+    } else if (pageInfo && pageInfo.length > 0) {
+      const currentPageInfo = pageInfo[currentPage];
+      
+      if (!currentPageInfo) {
+        return (
+          <div className="h-full w-full flex items-center justify-center text-white">
+            Page information not available
+          </div>
+        );
+      }
+      
+      // Check if we've loaded this page
+      const pageDataUrl = loadedPages[currentPageInfo.position];
+      
+      if (!pageDataUrl && !currentPageLoading) {
+        // If page not loaded and not currently loading, trigger load
+        if (id) {
+          loadPageData(id, currentPageInfo.id, currentPageInfo.position);
+        }
+        
+        return (
+          <div className="h-full w-full flex items-center justify-center text-white">
+            Loading page...
+          </div>
+        );
+      } else if (!pageDataUrl && currentPageLoading) {
+        return (
+          <div className="h-full w-full flex items-center justify-center text-white">
+            Loading page...
+          </div>
+        );
+      }
+      
       // Render the actual album page image
-      const currentPageData = albumPages[currentPage];
       return (
         <div className="h-full w-full relative">
           <img
-            src={currentPageData.dataUrl}
+            src={pageDataUrl}
             alt={`Album page ${currentPage + 1}`}
             className="h-full w-full object-contain"
           />
-          {currentPageData.isSelected && (
+          {currentPageInfo.isSelected && (
             <div className="absolute top-2 left-2 px-2 py-1 bg-primary text-primary-foreground text-xs rounded-md">
               Cover Photo
             </div>
@@ -355,7 +456,7 @@ const AlbumViewer = () => {
           
           <div className="text-white text-sm">
             Page {currentPage + 1} of {totalPages}
-            {albumPages[currentPage]?.isSelected && " (Cover)"}
+            {pageInfo[currentPage]?.isSelected && " (Cover)"}
           </div>
           
           <Button 

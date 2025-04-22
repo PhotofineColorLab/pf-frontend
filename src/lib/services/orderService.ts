@@ -52,6 +52,17 @@ export const getPublicAlbumById = async (id: string) => {
   }
 };
 
+// Get album page by ID (public, no authentication required)
+export const getAlbumPage = async (orderId: string, pageId: string) => {
+  try {
+    const response = await publicApi.get(`/orders/album/${orderId}/page/${pageId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching album page ${pageId}:`, error);
+    return null;
+  }
+};
+
 // Get all orders (admin only)
 export const getAllOrders = async () => {
   const response = await api.get('/orders/all');
@@ -92,5 +103,15 @@ export const deleteOrder = async (id: string) => {
 // Debug order file (admin only)
 export const debugOrderFile = async (id: string) => {
   const response = await api.get(`/orders/${id}/debug`);
+  return response.data;
+};
+
+// Save album pages (admin only)
+export const saveAlbumPages = async (
+  orderId: string, 
+  albumPages: Array<{id: string; dataUrl: string; isSelected: boolean; position: number}>,
+  coverIndex: number
+) => {
+  const response = await api.put(`/orders/${orderId}/album`, { albumPages, coverIndex });
   return response.data;
 };

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getOrderById, updateOrderStatus } from "@/lib/services/orderService";
+import { getOrderById, updateOrderStatus, saveAlbumPages } from "@/lib/services/orderService";
 import { Order } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -170,10 +170,19 @@ const AlbumGenerator = () => {
       // Store album data in localStorage
       localStorage.setItem(`album_${id}`, JSON.stringify(albumData));
       
-      // Update order status without showing a toast
+      // Save album pages to the server as well
       if (id) {
+        console.log("Saving album pages to server");
+        await saveAlbumPages(id, albumPages, coverIndex);
+        console.log("Album pages saved to server successfully");
+        
+        // Update order status without showing a toast
         await updateOrderStatus(id, "Completed");
-        // Remove the toast notification for status change
+        
+        toast({
+          title: "Album Created",
+          description: "Album has been created and saved to the server",
+        });
         
         // Redirect based on user role
         if (isAdmin) {
@@ -183,6 +192,7 @@ const AlbumGenerator = () => {
         }
       }
     } catch (error) {
+      console.error("Error creating album:", error);
       toast({
         title: "Error",
         description: "Failed to create the album",

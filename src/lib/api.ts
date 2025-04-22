@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast as showToast } from '@/hooks/use-toast';
 
 const API_URL = 'https://pf-backend-z825.onrender.com/api';
 
@@ -36,7 +37,7 @@ api.interceptors.request.use(
 // Add response interceptor to handle errors
 // Add this function to handle authentication-related toasts
 export const showAuthToast = (message: string, isError: boolean = false) => {
-  toast({
+  showToast({
     title: isError ? "Authentication Error" : "Authentication",
     description: message,
     variant: isError ? "destructive" : "default",
