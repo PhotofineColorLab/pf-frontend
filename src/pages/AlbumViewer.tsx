@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getOrderById } from "@/lib/services/orderService";
+import { getOrderById, getPublicAlbumById } from "@/lib/services/orderService";
 import { ArrowLeft, ArrowRight, Download, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -81,15 +81,33 @@ const AlbumViewer = () => {
             setUsingFallback(true);
           }
         } else {
-          // Fallback to getting order info
+          // Try to get public album data
           try {
-            const orderData = await getOrderById(id);
-            setAlbumName(orderData.albumName || "Digital Album");
-            setTotalPages(FALLBACK_COLORS.length);
-            setUsingFallback(true);
+            // First try public endpoint (no auth required)
+            const publicAlbumData = await getPublicAlbumById(id);
+            
+            if (publicAlbumData) {
+              setAlbumName(publicAlbumData.albumName || "Digital Album");
+              setTotalPages(FALLBACK_COLORS.length);
+              setUsingFallback(true);
+            } else {
+              // Fallback to getting order info (requires auth)
+              try {
+                const orderData = await getOrderById(id);
+                setAlbumName(orderData.albumName || "Digital Album");
+                setTotalPages(FALLBACK_COLORS.length);
+                setUsingFallback(true);
+              } catch (error) {
+                console.error("Error fetching order data:", error);
+                // If we can't get order data, use sample album
+                setAlbumName("Sample Album");
+                setTotalPages(FALLBACK_COLORS.length);
+                setUsingFallback(true);
+              }
+            }
           } catch (error) {
-            console.error("Error fetching order data:", error);
-            // If we can't get order data, use sample album
+            console.error("Error fetching album data:", error);
+            // If we can't get any data, use sample album
             setAlbumName("Sample Album");
             setTotalPages(FALLBACK_COLORS.length);
             setUsingFallback(true);

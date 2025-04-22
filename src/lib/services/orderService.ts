@@ -41,6 +41,17 @@ export const getOrderById = async (id: string) => {
   return response.data;
 };
 
+// Get album data by ID (public, no authentication required)
+export const getPublicAlbumById = async (id: string) => {
+  try {
+    const response = await api.get(`/orders/album/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching public album data:", error);
+    return null;
+  }
+};
+
 // Get all orders (admin only)
 export const getAllOrders = async () => {
   const response = await api.get('/orders/all');
